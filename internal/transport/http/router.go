@@ -19,6 +19,17 @@ type Server struct {
 	readiness Readiness
 }
 
+type UIBootstrap struct {
+	Framework string   `json:"framework"`
+	Locale    string   `json:"locale"`
+	Routes    []string `json:"routes"`
+	Version   int      `json:"version"`
+}
+
+func newUIBootstrap() UIBootstrap {
+	return UIBootstrap{Framework: "vue", Locale: "zh-CN", Routes: []string{"/", "/batches"}, Version: 1}
+}
+
 func (s *Server) respond(c *gin.Context, status int, value any, err error) {
 	if err != nil {
 		writeError(c, err)
@@ -45,6 +56,7 @@ func New(app *application.App, readiness Readiness, auth middleware.Authenticato
 	})
 	v1 := engine.Group("/api/v1")
 	v1.Use(middleware.Authenticate(auth))
+	v1.GET("/ui/bootstrap", func(c *gin.Context) { c.JSON(http.StatusOK, newUIBootstrap()) })
 	server.registerDataSources(v1)
 	server.registerPolicies(v1)
 	server.registerPreviews(v1)
