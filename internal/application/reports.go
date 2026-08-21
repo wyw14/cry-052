@@ -19,7 +19,8 @@ func (a *App) ExecutionReport(ctx context.Context, actor Actor, batchID string) 
 	if err != nil {
 		return domain.ExecutionReport{}, err
 	}
-	return domain.NewExecutionReport(batch, preview.StrategyCounters, a.now()), nil
+	evidence := preview.StrategyCounters
+	return compileExecutionReport(batch, evidence, a.now())
 }
 
 func (a *App) ExportReport(ctx context.Context, actor Actor, batchID, format string) ([]byte, string, error) {
