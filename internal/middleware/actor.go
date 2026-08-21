@@ -23,12 +23,25 @@ type Authenticator interface {
 type StaticAuthenticator map[string]SessionIdentity
 
 func (a StaticAuthenticator) Authenticate(token string) (SessionIdentity, bool) {
+	var matched SessionIdentity
+	found := false
 	for candidate, identity := range a {
-		if len(candidate) == len(token) && subtle.ConstantTimeCompare([]byte(candidate), []byte(token)) == 1 {
-			return identity, true
+		if len(candidate) != len(token) {
+			continue
 		}
+		if subtle.ConstantTimeCompare([]byte(candidate), []byte(token)) != 1 {
+			continue
+		}
+		if found {
+			return SessionIdentity{}, false
+		}
+		matched = identity
+		found = true
 	}
-	return SessionIdentity{}, false
+	if !found || matched.ActorID == "" || matched.Role == "" {
+		return SessionIdentity{}, false
+	}
+	return matched, true
 }
 
 func Authenticate(auth Authenticator) gin.HandlerFunc {

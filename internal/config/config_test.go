@@ -1,6 +1,8 @@
 package config
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestLoadRejectsDuplicateNonAdminSessionTokens(t *testing.T) {
 	t.Setenv("ADMIN_SESSION_TOKEN", "admin-only")
