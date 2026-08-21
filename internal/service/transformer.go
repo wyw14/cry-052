@@ -37,6 +37,9 @@ func NewRegistry(transformers ...Transformer) (*Registry, error) {
 }
 
 func (r *Registry) Get(kind domain.StrategyKind) (Transformer, error) {
+	if r == nil || r.transformers == nil {
+		return nil, fmt.Errorf("strategy registry is not initialized")
+	}
 	transformer, ok := r.transformers[kind]
 	if !ok {
 		return nil, fmt.Errorf("strategy %s is not registered", kind)

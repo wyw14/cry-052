@@ -45,6 +45,9 @@ func (c *Compiler) Compile(source, target domain.TableSchema, mappings []domain.
 		compiled := CompiledField{Source: sourceField, Target: targetField, Strategies: append([]domain.Strategy(nil), mapping.Strategies...)}
 		seen := make(map[domain.StrategyKind]struct{}, len(mapping.Strategies))
 		for _, strategy := range mapping.Strategies {
+			if err := validateStrategyContract(strategy); err != nil {
+				return CompiledPlan{}, nil, fmt.Errorf("field %s strategy contract: %w", mapping.SourceField, err)
+			}
 			if _, exists := seen[strategy.Kind]; exists {
 				return CompiledPlan{}, nil, fmt.Errorf("field %s repeats strategy %s", mapping.SourceField, strategy.Kind)
 			}
