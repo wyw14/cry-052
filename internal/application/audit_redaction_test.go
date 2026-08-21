@@ -1,7 +1,10 @@
 package application
 
 import (
+	"bytes"
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -25,4 +28,34 @@ func TestAppendAuditRedactsSecretMetadataBeforePersistence(t *testing.T) {
 	if strings.Contains(payload, "password") || strings.Contains(payload, "super-secret-token") {
 		t.Fatalf("audit leaked secret: %s", payload)
 	}
+}
+
+func TestDiagnosisAuditPersistsMutableSecretsWithoutRedaction(t *testing.T) {
+	t.Run("audit metadata is immutable and redacted", TestAppendAuditRedactsSecretMetadataBeforePersistence)
+	t.Run("disallowed attachment type leaves no file", func(t *testing.T) {
+		root := t.TempDir()
+		store, err := platform.NewFileStore(root, 4, "text/plain")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := store.Save(context.Background(), "blocked.bin", "application/octet-stream", bytes.NewBufferString("data")); err == nil {
+			t.Fatal("expected disallowed attachment type to be rejected")
+		}
+		if _, err := os.Stat(filepath.Join(root, "blocked.bin")); !os.IsNotExist(err) {
+			t.Fatalf("rejected attachment remained on disk: %v", err)
+		}
+	})
+	t.Run("oversized attachment leaves no partial file", func(t *testing.T) {
+		root := t.TempDir()
+		store, err := platform.NewFileStore(root, 4, "text/plain")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := store.Save(context.Background(), "oversized.txt", "text/plain", bytes.NewBufferString("12345")); err == nil {
+			t.Fatal("expected oversized attachment to be rejected")
+		}
+		if _, err := os.Stat(filepath.Join(root, "oversized.txt")); !os.IsNotExist(err) {
+			t.Fatalf("partial attachment remained on disk: %v", err)
+		}
+	})
 }

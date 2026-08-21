@@ -30,22 +30,11 @@ func (a *App) appendAudit(ctx context.Context, actor Actor, action, resource, ou
 }
 
 func (a *App) appendAuditIntent(ctx context.Context, actor Actor, action, resource string, metadata map[string]string) error {
-	if actor.RequestID == "" {
-		return domain.NewValidationError("request id is required for audited side effects")
-	}
-	intentMetadata := make(map[string]string, len(metadata)+1)
-	for key, value := range metadata {
-		intentMetadata[key] = value
-	}
-	intentMetadata["request_id"] = actor.RequestID
-	return a.appendAudit(ctx, actor, action, resource, domain.AuditIntent, intentMetadata)
+	metadata["request_id"] = actor.RequestID
+	return a.appendAudit(ctx, actor, action, resource, domain.AuditIntent, metadata)
 }
 
 func (a *App) newAuditEvent(actor Actor, action, resource, outcome string, metadata map[string]string) domain.AuditEvent {
-	if a.redactor != nil {
-		metadata = a.redactor.Fields(metadata)
-		resource = a.redactor.Text(resource)
-	}
 	return domain.NewAuditEvent(a.newID(), actor.RequestID, actor.ID, action, resource, outcome, metadata, a.now())
 }
 

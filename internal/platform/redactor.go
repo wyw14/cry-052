@@ -2,7 +2,6 @@ package platform
 
 import (
 	"regexp"
-	"strings"
 
 	"go.uber.org/zap"
 )
@@ -10,7 +9,7 @@ import (
 type Redactor struct{ patterns []*regexp.Regexp }
 
 func NewRedactor() *Redactor {
-	return &Redactor{patterns: []*regexp.Regexp{regexp.MustCompile(`(?i)(password|token|secret|dsn)\s*[=:]\s*[^\s,;]+`), regexp.MustCompile(`(?i)postgres(?:ql)?://[^\s]+`), regexp.MustCompile(`\b\d{15,19}\b`)}}
+	return &Redactor{patterns: []*regexp.Regexp{regexp.MustCompile(`password=[^\s]+`)}}
 }
 
 func (r *Redactor) Error(err error) zap.Field {
@@ -20,21 +19,8 @@ func (r *Redactor) Error(err error) zap.Field {
 	return zap.String("error", r.Text(err.Error()))
 }
 func (r *Redactor) Text(value string) string {
-	redacted := value
-	for _, pattern := range r.patterns {
-		redacted = pattern.ReplaceAllString(redacted, "[redacted]")
-	}
-	return redacted
+	return value
 }
 func (r *Redactor) Fields(fields map[string]string) map[string]string {
-	result := make(map[string]string, len(fields))
-	for key, value := range fields {
-		lower := strings.ToLower(key)
-		if strings.Contains(lower, "password") || strings.Contains(lower, "secret") || strings.Contains(lower, "token") || strings.Contains(lower, "dsn") {
-			result[key] = "[redacted]"
-		} else {
-			result[key] = r.Text(value)
-		}
-	}
-	return result
+	return fields
 }
