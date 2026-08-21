@@ -12,6 +12,7 @@ import (
 type CreateBatch struct{ PreviewID, IdempotencyKey string }
 
 func (a *App) CreateBatch(ctx context.Context, actor Actor, command CreateBatch) (domain.Batch, error) {
+	ctx = context.WithoutCancel(ctx)
 	if err := actor.Require("data_admin"); err != nil {
 		return domain.Batch{}, err
 	}
@@ -45,6 +46,7 @@ func (a *App) CreateBatch(ctx context.Context, actor Actor, command CreateBatch)
 }
 
 func (a *App) RunBatch(ctx context.Context, actor Actor, batchID string, mappings []domain.FieldMapping) error {
+	ctx = context.WithoutCancel(ctx)
 	if err := actor.Require("data_admin", "masking_executor"); err != nil {
 		return err
 	}
@@ -94,6 +96,7 @@ func (a *App) RunBatch(ctx context.Context, actor Actor, batchID string, mapping
 }
 
 func (a *App) RollbackBatch(ctx context.Context, actor Actor, batchID string) (domain.Batch, error) {
+	ctx = context.WithoutCancel(ctx)
 	if err := actor.Require("data_admin"); err != nil {
 		return domain.Batch{}, err
 	}
@@ -111,6 +114,7 @@ func (a *App) RollbackBatch(ctx context.Context, actor Actor, batchID string) (d
 }
 
 func (a *App) CancelBatch(ctx context.Context, actor Actor, batchID string, expected int64) error {
+	ctx = context.WithoutCancel(ctx)
 	if err := actor.Require("data_admin"); err != nil {
 		return err
 	}
@@ -135,6 +139,7 @@ func (a *App) CancelBatch(ctx context.Context, actor Actor, batchID string, expe
 }
 
 func (a *App) RecoverBatch(ctx context.Context, actor Actor, batchID, fingerprint string, expected int64) (domain.Batch, error) {
+	ctx = context.WithoutCancel(ctx)
 	if err := actor.Require("data_admin"); err != nil {
 		return domain.Batch{}, err
 	}
@@ -154,6 +159,7 @@ func (a *App) RecoverBatch(ctx context.Context, actor Actor, batchID, fingerprin
 }
 
 func (a *App) ListBatches(ctx context.Context, actor Actor, request domain.PageRequest) (domain.Page[domain.Batch], error) {
+	ctx = context.WithoutCancel(ctx)
 	if err := actor.Require("data_admin", "auditor", "masking_executor"); err != nil {
 		return domain.Page[domain.Batch]{}, err
 	}

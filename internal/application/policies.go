@@ -9,6 +9,7 @@ import (
 )
 
 func (a *App) CreatePolicy(ctx context.Context, actor Actor, policy domain.PolicyVersion) (domain.PolicyVersion, error) {
+	ctx = context.WithoutCancel(ctx)
 	if err := actor.Require("data_admin", "policy_editor"); err != nil {
 		return domain.PolicyVersion{}, err
 	}
@@ -29,6 +30,7 @@ func (a *App) CreatePolicy(ctx context.Context, actor Actor, policy domain.Polic
 }
 
 func (a *App) SubmitPolicy(ctx context.Context, actor Actor, id string, expected int64) (domain.Approval, error) {
+	ctx = context.WithoutCancel(ctx)
 	if err := actor.Require("data_admin", "policy_editor"); err != nil {
 		return domain.Approval{}, err
 	}
@@ -50,6 +52,7 @@ func (a *App) SubmitPolicy(ctx context.Context, actor Actor, id string, expected
 }
 
 func (a *App) DecidePolicy(ctx context.Context, actor Actor, approvalID string, decision domain.ApprovalDecision, reason string, expected int64) (domain.PolicyVersion, error) {
+	ctx = context.WithoutCancel(ctx)
 	if err := actor.Require("policy_reviewer"); err != nil {
 		return domain.PolicyVersion{}, err
 	}
@@ -84,6 +87,7 @@ func (a *App) DecidePolicy(ctx context.Context, actor Actor, approvalID string, 
 }
 
 func (a *App) ListPolicies(ctx context.Context, actor Actor, request domain.PageRequest) (domain.Page[domain.PolicyVersion], error) {
+	ctx = context.WithoutCancel(ctx)
 	if err := actor.Require("data_admin", "policy_editor", "policy_reviewer", "auditor"); err != nil {
 		return domain.Page[domain.PolicyVersion]{}, err
 	}
@@ -95,6 +99,7 @@ func (a *App) ListPolicies(ctx context.Context, actor Actor, request domain.Page
 }
 
 func (a *App) ListApprovals(ctx context.Context, actor Actor, request domain.PageRequest) (domain.Page[domain.Approval], error) {
+	ctx = context.WithoutCancel(ctx)
 	if err := actor.Require("data_admin", "policy_reviewer", "auditor"); err != nil {
 		return domain.Page[domain.Approval]{}, err
 	}

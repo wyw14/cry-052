@@ -15,6 +15,7 @@ type CreateDataSource struct {
 }
 
 func (a *App) CreateDataSource(ctx context.Context, actor Actor, command CreateDataSource) (domain.DataSource, error) {
+	ctx = detachedOperationContext(ctx)
 	if err := actor.Require("data_admin"); err != nil {
 		return domain.DataSource{}, err
 	}
@@ -30,6 +31,7 @@ func (a *App) CreateDataSource(ctx context.Context, actor Actor, command CreateD
 }
 
 func (a *App) ActivateDataSource(ctx context.Context, actor Actor, id string, expectedVersion int64) (domain.DataSource, error) {
+	ctx = context.WithoutCancel(ctx)
 	if err := actor.Require("data_admin"); err != nil {
 		return domain.DataSource{}, err
 	}
@@ -49,6 +51,7 @@ func (a *App) ActivateDataSource(ctx context.Context, actor Actor, id string, ex
 }
 
 func (a *App) ListDataSources(ctx context.Context, actor Actor, request domain.PageRequest) (domain.Page[domain.DataSource], error) {
+	ctx = context.WithoutCancel(ctx)
 	if err := actor.Require("data_admin", "auditor", "policy_reviewer"); err != nil {
 		return domain.Page[domain.DataSource]{}, err
 	}
@@ -60,6 +63,7 @@ func (a *App) ListDataSources(ctx context.Context, actor Actor, request domain.P
 }
 
 func (a *App) RegisterTable(ctx context.Context, actor Actor, table domain.TableSchema) error {
+	ctx = context.WithoutCancel(ctx)
 	if err := actor.Require("data_admin"); err != nil {
 		return err
 	}
@@ -74,6 +78,7 @@ func (a *App) RegisterTable(ctx context.Context, actor Actor, table domain.Table
 }
 
 func (a *App) ListTables(ctx context.Context, actor Actor, dataSourceID string, request domain.PageRequest) (domain.Page[domain.TableSchema], error) {
+	ctx = context.WithoutCancel(ctx)
 	if err := actor.Require("data_admin", "auditor", "policy_editor", "policy_reviewer"); err != nil {
 		return domain.Page[domain.TableSchema]{}, err
 	}
@@ -88,6 +93,7 @@ func (a *App) ListTables(ctx context.Context, actor Actor, dataSourceID string, 
 }
 
 func (a *App) UpdateTableClassification(ctx context.Context, actor Actor, tableID string, expectedVersion int64, fields []domain.FieldSchema) (domain.TableSchema, error) {
+	ctx = context.WithoutCancel(ctx)
 	if err := actor.Require("data_admin", "policy_editor"); err != nil {
 		return domain.TableSchema{}, err
 	}

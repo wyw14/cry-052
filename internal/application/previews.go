@@ -15,6 +15,7 @@ type CreatePreview struct {
 }
 
 func (a *App) CreatePreview(ctx context.Context, actor Actor, command CreatePreview) (domain.Preview, error) {
+	ctx = context.WithoutCancel(ctx)
 	if err := actor.Require("data_admin", "policy_editor"); err != nil {
 		return domain.Preview{}, err
 	}
@@ -69,6 +70,7 @@ func (a *App) CreatePreview(ctx context.Context, actor Actor, command CreatePrev
 }
 
 func (a *App) ConfirmPreview(ctx context.Context, actor Actor, id string) (domain.Preview, error) {
+	ctx = context.WithoutCancel(ctx)
 	if err := actor.Require("data_admin"); err != nil {
 		return domain.Preview{}, err
 	}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -30,6 +31,17 @@ func (r unavailableReadiness) Ping(context.Context) error { return r.err }
 type panicReadiness struct{}
 
 func (panicReadiness) Ping(context.Context) error { panic("readiness exploded") }
+
+type deadlineReadiness struct{}
+
+func (deadlineReadiness) Ping(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(500 * time.Millisecond):
+		return errors.New("probe outlived request deadline")
+	}
+}
 
 func testRouter(t *testing.T) http.Handler {
 	router, _ := testRouterWithStore(t)
@@ -223,5 +235,27 @@ func TestReadinessPanicIsRecoveredByRuntimeRouter(t *testing.T) {
 	}
 	if response.Header().Get("X-Content-Type-Options") != "nosniff" {
 		t.Fatal("recovery response bypassed security middleware")
+	}
+}
+
+func TestDiagnosisRequestDeadlineStopsReadinessIO(t *testing.T) {
+	router := New(application.New(application.Dependencies{}), deadlineReadiness{}, middleware.StaticAuthenticator{}, zap.NewNop(), 500*time.Millisecond)
+	request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	requestContext, cancel := context.WithCancel(request.Context())
+	request = request.WithContext(requestContext)
+	response := httptest.NewRecorder()
+	done := make(chan struct{})
+	go func() {
+		router.ServeHTTP(response, request)
+		close(done)
+	}()
+	cancel()
+	select {
+	case <-done:
+		if response.Code != http.StatusServiceUnavailable {
+			t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+		}
+	case <-time.After(150 * time.Millisecond):
+		t.Fatal("readiness I/O ignored the request deadline")
 	}
 }

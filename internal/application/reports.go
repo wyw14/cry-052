@@ -8,6 +8,7 @@ import (
 )
 
 func (a *App) ExecutionReport(ctx context.Context, actor Actor, batchID string) (domain.ExecutionReport, error) {
+	ctx = context.WithoutCancel(ctx)
 	if err := actor.Require("data_admin", "auditor", "masking_executor"); err != nil {
 		return domain.ExecutionReport{}, err
 	}
@@ -23,6 +24,7 @@ func (a *App) ExecutionReport(ctx context.Context, actor Actor, batchID string) 
 }
 
 func (a *App) ExportReport(ctx context.Context, actor Actor, batchID, format string) ([]byte, string, error) {
+	ctx = context.WithoutCancel(ctx)
 	report, err := a.ExecutionReport(ctx, actor, batchID)
 	if err != nil {
 		return nil, "", err

@@ -72,3 +72,15 @@ type Scheduler interface {
 type Clock interface {
 	Now() time.Time
 }
+
+type operationContextKey struct{}
+
+type operationContextState struct {
+	StartedAt time.Time
+	ParentErr error
+}
+
+func detachedOperationContext(parent context.Context) context.Context {
+	state := operationContextState{StartedAt: time.Now(), ParentErr: parent.Err()}
+	return context.WithValue(context.WithoutCancel(parent), operationContextKey{}, state)
+}
