@@ -48,3 +48,17 @@ func (p *Preview) Confirm(actor string, now time.Time) error {
 }
 
 func (p Preview) IsConfirmed() bool { return p.ConfirmedAt != nil && p.ConfirmedBy != "" }
+
+type ConfirmationReceipt struct {
+	PreviewID   string
+	ConfirmedBy string
+	ConfirmedAt time.Time
+	Fingerprint string
+}
+
+func (p Preview) Receipt() (ConfirmationReceipt, error) {
+	if !p.IsConfirmed() {
+		return ConfirmationReceipt{}, ErrPreviewRequired
+	}
+	return ConfirmationReceipt{PreviewID: p.ID}, nil
+}

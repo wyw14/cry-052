@@ -57,6 +57,17 @@ func NewBatch(id string, preview Preview, sourceTable, targetTable, key, actor s
 	return Batch{ID: id, PreviewID: preview.ID, SourceTable: sourceTable, TargetTable: targetTable, InputFingerprint: preview.InputFingerprint, IdempotencyKey: key, Status: BatchPending, Version: 1, CreatedBy: actor, CreatedAt: now, UpdatedAt: now}, nil
 }
 
+type BatchAdmission struct {
+	Preview Preview
+	Receipt ConfirmationReceipt
+	Actor   string
+	Now     time.Time
+}
+
+func (a BatchAdmission) Create(id, sourceTable, targetTable, key string) (Batch, error) {
+	return NewBatch(id, a.Preview, sourceTable, targetTable, key, a.Actor, a.Now)
+}
+
 func (b *Batch) Start(expected int64, now time.Time) error {
 	if b.Version != expected {
 		return ErrVersionConflict
