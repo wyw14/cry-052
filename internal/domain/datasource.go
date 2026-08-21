@@ -40,8 +40,9 @@ func NewDataSource(id, name string, kind DataSourceKind, reference string, now t
 	if kind != DataSourcePostgres && kind != DataSourceSample {
 		return DataSource{}, NewValidationError("data source is invalid", FieldViolation{Field: "kind", Message: "unsupported kind"})
 	}
-	if reference == "" || strings.Contains(reference, "://") {
-		return DataSource{}, NewValidationError("data source is invalid", FieldViolation{Field: "connection_reference", Message: "use an encrypted local reference, not a DSN"})
+	reference, err := normalizeConnectionReference(reference)
+	if err != nil {
+		return DataSource{}, err
 	}
 	return DataSource{ID: id, Name: name, Kind: kind, ConnectionReference: reference, Status: DataSourceDraft, Version: 1, CreatedAt: now, UpdatedAt: now}, nil
 }

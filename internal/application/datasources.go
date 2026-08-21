@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/wyw14/cry052/internal/domain"
 	"github.com/wyw14/cry052/internal/persistence"
@@ -18,6 +19,7 @@ func (a *App) CreateDataSource(ctx context.Context, actor Actor, command CreateD
 	if err := actor.Require("data_admin"); err != nil {
 		return domain.DataSource{}, err
 	}
+	command = normalizeDataSourceRegistration(command)
 	dataSource, err := domain.NewDataSource(a.newID(), command.Name, command.Kind, command.ConnectionReference, a.now())
 	if err != nil {
 		return domain.DataSource{}, err
@@ -27,6 +29,12 @@ func (a *App) CreateDataSource(ctx context.Context, actor Actor, command CreateD
 		return domain.DataSource{}, fmt.Errorf("create data source: %w", err)
 	}
 	return dataSource, nil
+}
+
+func normalizeDataSourceRegistration(command CreateDataSource) CreateDataSource {
+	command.Name = strings.TrimSpace(command.Name)
+	command.ConnectionReference = strings.TrimSpace(command.ConnectionReference)
+	return command
 }
 
 func (a *App) ActivateDataSource(ctx context.Context, actor Actor, id string, expectedVersion int64) (domain.DataSource, error) {
