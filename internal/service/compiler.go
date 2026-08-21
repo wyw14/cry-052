@@ -15,6 +15,8 @@ type CompiledField struct {
 	Strategies   []domain.Strategy
 }
 
+func (f CompiledField) SourceName() string { return f.Source.Name }
+
 type CompiledPlan struct {
 	SourceTable domain.TableSchema
 	TargetTable domain.TableSchema

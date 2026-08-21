@@ -27,7 +27,7 @@ func (e *PreviewEngine) Apply(ctx context.Context, plan CompiledPlan, rows []Row
 		targetRow := make(Row, len(plan.Fields))
 		changes := make([]domain.ValueChange, 0, len(plan.Fields))
 		for _, field := range plan.Fields {
-			value, exists := sourceRow[field.Source.Name]
+			value, exists := lookupMappedValue(sourceRow, field.SourceName())
 			if !exists {
 				return nil, nil, nil, fmt.Errorf("row %d has no field %s", index, field.Source.Name)
 			}
@@ -40,7 +40,7 @@ func (e *PreviewEngine) Apply(ctx context.Context, plan CompiledPlan, rows []Row
 				}
 				counters[string(transformer.Kind())]++
 			}
-			targetRow[field.Target.Name] = value
+			targetRow[field.Target.Name] = preserveMappedValue(value)
 			after := fmt.Sprint(value)
 			if before != after {
 				changes = append(changes, domain.ValueChange{Field: field.Source.Name, Before: before, After: after, Rule: strategyNames(field.Strategies)})
