@@ -1,0 +1,14 @@
+{
+  "extends": "@vue/tsconfig/tsconfig.dom.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "paths": { "@/*": ["src/*"] },
+    "resolveJsonModule": true,
+    "types": ["vite/client", "vitest/globals"]
+  },
+  "include": ["vite.config.ts", "src/**/*.vue", "src/**/*.ts"],
+  "exclude": ["dist", "node_modules"]
+}

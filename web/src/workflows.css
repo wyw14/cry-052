@@ -1,0 +1,25 @@
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.form-grid label { margin: 0; }
+.form-grid input,
+.table-wrap input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #fff;
+  padding: 8px 10px;
+  color: #34413b;
+}
+
+.card-actions { display: flex; gap: 8px; }
+.card-actions .secondary { min-width: 0; }
+.secondary.danger { color: var(--red); background: #f8eeee; }
+.form-actions { display: flex; justify-content: flex-end; margin-top: 14px; }
+
+@media (max-width: 980px) { .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 680px) { .form-grid { grid-template-columns: 1fr; } }

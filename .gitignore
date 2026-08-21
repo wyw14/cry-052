@@ -1,0 +1,9 @@
+.env
+.idea/
+.vscode/
+bin/
+coverage.out
+data/
+web/node_modules/
+web/dist/
+*.log

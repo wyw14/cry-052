@@ -1,0 +1,105 @@
+openapi: 3.0.3
+info:
+  title: cry052 Offline Masking Governance API
+  version: 1.1.0
+  description: Local-only governance API. Roles are resolved from configured bearer sessions, never from client role headers.
+servers:
+  - url: http://localhost:8080/api/v1
+security:
+  - localSession: []
+paths:
+  /data-sources:
+    get: {summary: List registered data sources with paging, sorting and filters, responses: {'200': {description: Paginated data sources}, default: {$ref: '#/components/responses/Error'}}}
+    post: {summary: Register a data source using a local secret reference, responses: {'201': {description: Created}, default: {$ref: '#/components/responses/Error'}}}
+  /data-sources/{id}/activate:
+    post:
+      summary: Activate a data source with optimistic version checking
+      parameters: [{$ref: '#/components/parameters/ID'}]
+      responses: {'200': {description: Activated}, default: {$ref: '#/components/responses/Error'}}
+  /tables:
+    get:
+      summary: List classified table schemas with paging, sorting and allowlisted field filters
+      parameters: [{name: data_source_id, in: query, required: true, schema: {type: string}}, {$ref: '#/components/parameters/Page'}, {$ref: '#/components/parameters/Size'}, {$ref: '#/components/parameters/Sort'}]
+      responses: {'200': {description: Paginated table schemas}, default: {$ref: '#/components/responses/Error'}}
+    post: {summary: Register a classified table schema, responses: {'201': {description: Registered}, default: {$ref: '#/components/responses/Error'}}}
+  /tables/{id}/classification:
+    patch:
+      summary: Update field sensitivity, category and scopes with optimistic version checking
+      parameters: [{$ref: '#/components/parameters/ID'}]
+      responses: {'200': {description: Classification updated}, default: {$ref: '#/components/responses/Error'}}
+  /policies:
+    get: {summary: List versioned policies, responses: {'200': {description: Paginated policy versions}, default: {$ref: '#/components/responses/Error'}}}
+    post: {summary: Create a draft policy version, responses: {'201': {description: Created}, default: {$ref: '#/components/responses/Error'}}}
+  /policies/{id}/submit:
+    post:
+      summary: Atomically submit a policy and create its approval
+      parameters: [{$ref: '#/components/parameters/ID'}]
+      responses: {'201': {description: Approval created}, default: {$ref: '#/components/responses/Error'}}
+  /approvals/{id}/decision:
+    post:
+      summary: Atomically decide an approval and update policy state
+      parameters: [{$ref: '#/components/parameters/ID'}]
+      responses: {'200': {description: Policy state updated}, default: {$ref: '#/components/responses/Error'}}
+  /approvals:
+    get:
+      summary: List approval inbox items with paging, sorting and allowlisted filters
+      responses: {'200': {description: Paginated approvals}, default: {$ref: '#/components/responses/Error'}}
+  /previews:
+    post: {summary: Compile mappings, detect conflicts and preview local sample rows, responses: {'201': {description: Preview created}, default: {$ref: '#/components/responses/Error'}}}
+  /previews/{id}/confirm:
+    post:
+      summary: Confirm a conflict-free preview and target table
+      parameters: [{$ref: '#/components/parameters/ID'}]
+      responses: {'200': {description: Confirmed}, default: {$ref: '#/components/responses/Error'}}
+  /batches:
+    get: {summary: List execution batches, responses: {'200': {description: Paginated batches}, default: {$ref: '#/components/responses/Error'}}}
+    post:
+      summary: Create an idempotent batch from a confirmed preview
+      parameters: [{name: Idempotency-Key, in: header, required: true, schema: {type: string}}]
+      responses: {'201': {description: Created or safely replayed}, default: {$ref: '#/components/responses/Error'}}
+  /batches/{id}/run:
+    post: {summary: Execute mappings and reconcile target row counts, parameters: [{$ref: '#/components/parameters/ID'}], responses: {'202': {description: Accepted}, default: {$ref: '#/components/responses/Error'}}}
+  /batches/{id}/cancel:
+    post: {summary: Request cancellation with optimistic version checking, parameters: [{$ref: '#/components/parameters/ID'}], responses: {'202': {description: Accepted}, default: {$ref: '#/components/responses/Error'}}}
+  /batches/{id}/recover:
+    post: {summary: Recover a failed batch only for the same input fingerprint, parameters: [{$ref: '#/components/parameters/ID'}], responses: {'200': {description: Recovering}, default: {$ref: '#/components/responses/Error'}}}
+  /batches/{id}/rollback:
+    post: {summary: Roll target data back to the captured checkpoint, parameters: [{$ref: '#/components/parameters/ID'}], responses: {'200': {description: Rolled back and verified}, default: {$ref: '#/components/responses/Error'}}}
+  /batches/{id}/report:
+    get:
+      summary: Export a reconciled execution report
+      parameters: [{$ref: '#/components/parameters/ID'}, {name: format, in: query, schema: {type: string, enum: [json, csv], default: json}}]
+      responses: {'200': {description: JSON or CSV report}, default: {$ref: '#/components/responses/Error'}}
+  /audit:
+    get: {summary: List redacted audit events, responses: {'200': {description: Paginated audit events}, default: {$ref: '#/components/responses/Error'}}}
+  /attachments:
+    post:
+      summary: Store a size and type validated local attachment
+      requestBody: {required: true, content: {multipart/form-data: {schema: {type: object, required: [file], properties: {file: {type: string, format: binary}}}}}}
+      responses: {'201': {description: Stored locally}, default: {$ref: '#/components/responses/Error'}}
+  /local-events/callbacks:
+    get: {summary: List locally captured callbacks with paging, sorting and allowlisted filters, responses: {'200': {description: Paginated callback events}, default: {$ref: '#/components/responses/Error'}}}
+  /local-events/schedules:
+    get: {summary: List local scheduled events with paging, sorting and allowlisted filters, responses: {'200': {description: Paginated scheduled events}, default: {$ref: '#/components/responses/Error'}}}
+    post: {summary: Create a future local scheduled event, responses: {'201': {description: Scheduled}, default: {$ref: '#/components/responses/Error'}}}
+components:
+  securitySchemes:
+    localSession: {type: http, scheme: bearer, bearerFormat: opaque-local-session}
+  parameters:
+    ID: {name: id, in: path, required: true, schema: {type: string}}
+    Page: {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
+    Size: {name: size, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+    Sort: {name: sort, in: query, schema: {type: string}}
+  responses:
+    Error:
+      description: Stable API error
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, message, request_id]
+            properties:
+              code: {type: string}
+              message: {type: string}
+              fields: {type: array, items: {type: object, properties: {field: {type: string}, message: {type: string}}}}
+              request_id: {type: string}
