@@ -43,6 +43,13 @@ type LocalScheduler struct {
 	byID  map[string]*queuedEvent
 }
 
+func (s *LocalScheduler) ScheduleOnce(ctx context.Context, _ string, event domain.ScheduledEvent) (domain.ScheduledEvent, bool, error) {
+	if err := s.Schedule(ctx, event); err != nil {
+		return domain.ScheduledEvent{}, false, err
+	}
+	return event, true, nil
+}
+
 func NewLocalScheduler() *LocalScheduler {
 	scheduler := &LocalScheduler{byID: make(map[string]*queuedEvent)}
 	heap.Init(&scheduler.queue)

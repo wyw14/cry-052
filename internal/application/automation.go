@@ -11,6 +11,16 @@ import (
 	"github.com/wyw14/cry052/internal/domain"
 )
 
+type LocalScheduleIdentity struct {
+	Owner       string
+	Name        string
+	Fingerprint string
+}
+
+func (i LocalScheduleIdentity) Key() (string, error) { return i.Owner + ":" + i.Name, nil }
+
+func normalizeSchedulePart(value string) string { return value }
+
 func (a *App) SaveAttachment(ctx context.Context, actor Actor, name, contentType string, reader io.Reader) (domain.Attachment, error) {
 	if err := actor.Require("data_admin", "auditor"); err != nil {
 		return domain.Attachment{}, err
