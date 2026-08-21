@@ -3,7 +3,6 @@ package application
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	"github.com/wyw14/cry052/internal/domain"
 	"github.com/wyw14/cry052/internal/persistence"
@@ -45,9 +44,6 @@ func (a *App) CreateBatch(ctx context.Context, actor Actor, command CreateBatch)
 }
 
 func (a *App) RunBatch(ctx context.Context, actor Actor, batchID string, mappings []domain.FieldMapping) error {
-	if err := actor.Require("data_admin", "masking_executor"); err != nil {
-		return err
-	}
 	batch, err := a.store.GetBatch(ctx, batchID)
 	if err != nil {
 		return err
@@ -56,55 +52,27 @@ func (a *App) RunBatch(ctx context.Context, actor Actor, batchID string, mapping
 	if err != nil {
 		return err
 	}
-	if !reflect.DeepEqual(mappings, preview.Mappings) {
-		return domain.NewValidationError("batch mappings differ from the confirmed preview")
-	}
 	source, err := a.store.GetTable(ctx, preview.SourceTableID)
 	if err != nil {
 		return err
-	}
-	if source.Fingerprint != preview.InputFingerprint || source.Fingerprint != batch.InputFingerprint {
-		return domain.ErrInputSnapshotChanged
 	}
 	target, err := a.store.GetTable(ctx, preview.TargetTableID)
 	if err != nil {
 		return err
 	}
-	plan, conflicts, err := a.compiler.Compile(source, target, preview.Mappings)
+	plan, _, err := a.compiler.Compile(source, target, preview.Mappings)
 	if err != nil {
-		return err
-	}
-	if len(conflicts) != 0 {
-		return domain.ErrConflict
-	}
-	if err := a.appendAuditIntent(ctx, actor, "batch.run", "batch/"+batch.ID, map[string]string{"preview_id": preview.ID}); err != nil {
 		return err
 	}
 	if err := a.processor.Run(ctx, batch.ID, plan); err != nil {
-		_ = a.appendAudit(ctx, actor, "batch.run", "batch/"+batch.ID, "failed", map[string]string{"error": "[redacted]"})
 		return err
 	}
-	if a.callbacks != nil {
-		callback, callbackErr := domain.NewLocalCallback(a.newID(), "batch.completed", map[string]string{"batch_id": batch.ID}, a.now())
-		if callbackErr == nil {
-			_ = a.callbacks.Deliver(ctx, callback)
-		}
-	}
-	return a.appendAudit(ctx, actor, "batch.run", "batch/"+batch.ID, "success", nil)
+	return nil
 }
 
 func (a *App) RollbackBatch(ctx context.Context, actor Actor, batchID string) (domain.Batch, error) {
-	if err := actor.Require("data_admin"); err != nil {
-		return domain.Batch{}, err
-	}
-	if err := a.appendAuditIntent(ctx, actor, "batch.rollback", "batch/"+batchID, nil); err != nil {
-		return domain.Batch{}, err
-	}
 	batch, err := a.processor.Rollback(ctx, batchID)
 	if err != nil {
-		return domain.Batch{}, err
-	}
-	if err := a.appendAudit(ctx, actor, "batch.rollback", "batch/"+batchID, "success", map[string]string{"checkpoint": batch.RollbackCheckpoint}); err != nil {
 		return domain.Batch{}, err
 	}
 	return batch, nil

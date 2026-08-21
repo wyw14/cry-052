@@ -13,7 +13,7 @@ import (
 	"github.com/wyw14/cry052/internal/service"
 )
 
-func TestPreviewBatchReportAuditAndCallbackWorkflow(t *testing.T) {
+func TestOfflinePreviewBatchPublishesGovernanceEvidence(t *testing.T) {
 	ctx := context.Background()
 	store := memory.New()
 	samples := platform.NewSampleDatabase()
