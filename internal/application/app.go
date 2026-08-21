@@ -19,6 +19,7 @@ type App struct {
 	preview   *service.PreviewEngine
 	processor *service.BatchProcessor
 	exporter  *service.ReportExporter
+	workspace *WorkspaceReducer
 	now       func() time.Time
 	newID     func() string
 }
@@ -35,6 +36,7 @@ type Dependencies struct {
 	Preview   *service.PreviewEngine
 	Processor *service.BatchProcessor
 	Exporter  *service.ReportExporter
+	Workspace *WorkspaceReducer
 	Now       func() time.Time
 	NewID     func() string
 }
@@ -46,5 +48,10 @@ func New(deps Dependencies) *App {
 	if deps.NewID == nil {
 		deps.NewID = uuid.NewString
 	}
-	return &App{store: deps.Store, samples: deps.Samples, notifier: deps.Notifier, redactor: deps.Redactor, files: deps.Files, callbacks: deps.Callbacks, scheduler: deps.Scheduler, compiler: deps.Compiler, preview: deps.Preview, processor: deps.Processor, exporter: deps.Exporter, now: deps.Now, newID: deps.NewID}
+	if deps.Workspace == nil {
+		deps.Workspace = &WorkspaceReducer{}
+	}
+	return &App{store: deps.Store, samples: deps.Samples, notifier: deps.Notifier, redactor: deps.Redactor, files: deps.Files, callbacks: deps.Callbacks, scheduler: deps.Scheduler, compiler: deps.Compiler, preview: deps.Preview, processor: deps.Processor, exporter: deps.Exporter, workspace: deps.Workspace, now: deps.Now, newID: deps.NewID}
 }
+
+func (a *App) WorkspaceState() *WorkspaceReducer { return a.workspace }

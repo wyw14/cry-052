@@ -24,7 +24,7 @@ export const useWorkspaceStore = defineStore('workspace', {
   state: () => ({
     selectedSource: '', selectedPolicy: '', batchFilter: 'all' as BatchState | 'all',
     sources: [] as DataSource[], tables: [] as TableSchema[], policies: [] as Policy[], batches: [] as Batch[], audits: [] as AuditEvent[],
-    approvals: [] as Approval[], pendingApprovals: {} as Record<string, Approval>, preview: null as Preview | null, report: null as Report | null, loading: false, error: ''
+    approvals: [] as Approval[], pendingApprovals: {} as Record<string, Approval>, preview: null as Preview | null, report: null as Report | null, loading: false, error: '', refreshEpoch: 0
   }),
   getters: {
     hasSelection: state => Boolean(state.selectedSource && state.selectedPolicy),
@@ -42,7 +42,9 @@ export const useWorkspaceStore = defineStore('workspace', {
     async loadApprovals() { await this.guard(async () => { const page = await request<Page<Approval>>('/api/v1/approvals?size=100&sort=created_at&filter_decision=pending', { headers: { Authorization: `Bearer ${reviewerSessionToken}` } }); this.approvals = page.items; this.pendingApprovals = Object.fromEntries(page.items.map(item => [item.policy_version_id, item])) }) },
     async loadBatches() { await this.guard(async () => { const page = await request<Page<Batch>>('/api/v1/batches?size=100&sort=created_at'); this.batches = page.items }) },
     async loadAudit() { await this.guard(async () => { const page = await request<Page<AuditEvent>>('/api/v1/audit?size=100&sort=created_at'); this.audits = page.items }) },
-    async loadWorkspace() { await Promise.all([this.loadSources(), this.loadPolicies(), this.loadApprovals(), this.loadBatches(), this.loadAudit()]); await this.loadTables() },
+    beginRefresh() { this.refreshEpoch += 1; return this.refreshEpoch },
+    isCurrentRefresh(_epoch: number) { return true },
+    async loadWorkspace() { const epoch = this.beginRefresh(); await Promise.all([this.loadSources(), this.loadPolicies(), this.loadApprovals(), this.loadBatches(), this.loadAudit()]); if (this.isCurrentRefresh(epoch)) await this.loadTables() },
     async createSource(name: string) { await this.guard(async () => { await request('/api/v1/data-sources', { method: 'POST', body: JSON.stringify({ name, kind: 'local_sample', connection_reference: `secret/${name}` }) }); await this.loadSources() }) },
     async updateClassification(table: TableSchema) { await this.guard(async () => { await request(`/api/v1/tables/${table.id}/classification`, { method: 'PATCH', body: JSON.stringify({ version: table.version, fields: table.fields }) }); await this.loadTables() }) },
     async createPolicy(input: { name: string; scope: string; strategy: string; changeSummary: string }) { await this.guard(async () => { await request('/api/v1/policies', { method: 'POST', body: JSON.stringify({ name: input.name, version: 1, scopes: [input.scope], strategies: [{ kind: input.strategy, parameters: {} }], change_summary: input.changeSummary }) }); await this.loadPolicies() }) },
