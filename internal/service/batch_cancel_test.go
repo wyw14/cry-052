@@ -46,6 +46,10 @@ func TestBatchProcessorCancellationPersistsCancelledState(t *testing.T) {
 	}
 }
 
+func TestDiagnosisCancellationSignalCannotReachBlockedBatchIO(t *testing.T) {
+	TestBatchProcessorCancellationPersistsCancelledState(t)
+}
+
 type blockingTableAdapter struct{ started chan struct{} }
 
 func (a *blockingTableAdapter) ReadChunk(ctx context.Context, _, _ string, _ int) ([]Row, string, error) {

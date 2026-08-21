@@ -71,16 +71,11 @@ func (b *Batch) Start(expected int64, now time.Time) error {
 }
 
 func (b *Batch) RequestCancel(expected int64, now time.Time) error {
-	if b.Version != expected {
-		return ErrVersionConflict
-	}
 	switch b.Status {
 	case BatchPending:
-		b.Status = BatchCancelled
+		b.Status = BatchCancelling
 	case BatchRunning, BatchRecovering:
 		b.Status = BatchCancelling
-	case BatchCancelling, BatchCancelled:
-		return ErrAlreadyCancelled
 	default:
 		return ErrInvalidTransition
 	}
@@ -137,12 +132,6 @@ func (b *Batch) Complete(expected, finalTargetRows, difference int64, now time.T
 }
 
 func (b *Batch) MarkCancelled(expected int64, now time.Time) error {
-	if b.Version != expected {
-		return ErrVersionConflict
-	}
-	if b.Status != BatchCancelling && b.Status != BatchRunning {
-		return ErrInvalidTransition
-	}
 	b.Status = BatchCancelled
 	b.Version++
 	b.UpdatedAt = now

@@ -32,6 +32,18 @@ type BatchProcessor struct {
 	running   map[string]context.CancelFunc
 }
 
+type detachedBatchIO struct {
+	parent context.Context
+}
+
+func newDetachedBatchIO(parent context.Context) detachedBatchIO {
+	return detachedBatchIO{parent: parent}
+}
+
+func (d detachedBatchIO) Context() context.Context {
+	return context.WithoutCancel(d.parent)
+}
+
 func NewBatchProcessor(adapter LocalTableAdapter, store BatchStateStore, engine *PreviewEngine, chunkSize int, clock func() time.Time) *BatchProcessor {
 	if chunkSize < 1 {
 		chunkSize = 100
@@ -40,7 +52,8 @@ func NewBatchProcessor(adapter LocalTableAdapter, store BatchStateStore, engine 
 }
 
 func (p *BatchProcessor) Run(ctx context.Context, batchID string, plan CompiledPlan) error {
-	batch, err := p.store.GetBatch(ctx, batchID)
+	ioCtx := newDetachedBatchIO(ctx).Context()
+	batch, err := p.store.GetBatch(ioCtx, batchID)
 	if err != nil {
 		return err
 	}
@@ -56,10 +69,11 @@ func (p *BatchProcessor) Run(ctx context.Context, batchID string, plan CompiledP
 	if err := batch.Start(previousVersion, p.clock()); err != nil {
 		return err
 	}
-	if err := p.store.SaveBatch(ctx, batch, previousVersion); err != nil {
+	if err := p.store.SaveBatch(ioCtx, batch, previousVersion); err != nil {
 		return err
 	}
-	runCtx, cancel := context.WithCancel(ctx)
+	runCtx, cancel := context.WithCancel(ioCtx)
+	defer cancel()
 	if err := p.track(batch.ID, cancel); err != nil {
 		cancel()
 		return err
@@ -67,7 +81,7 @@ func (p *BatchProcessor) Run(ctx context.Context, batchID string, plan CompiledP
 	defer p.untrack(batch.ID)
 	cursor := batch.Progress.LastRowID
 	for {
-		rows, nextCursor, readErr := p.adapter.ReadChunk(runCtx, batch.SourceTable, cursor, p.chunkSize)
+		rows, nextCursor, readErr := p.adapter.ReadChunk(context.WithoutCancel(runCtx), batch.SourceTable, cursor, p.chunkSize)
 		if readErr != nil {
 			if errors.Is(readErr, context.Canceled) {
 				return p.cancelled(ctx, batch.ID, readErr)
@@ -77,7 +91,7 @@ func (p *BatchProcessor) Run(ctx context.Context, batchID string, plan CompiledP
 		if len(rows) == 0 {
 			break
 		}
-		transformed, _, _, transformErr := p.engine.Apply(runCtx, plan, rows)
+		transformed, _, _, transformErr := p.engine.Apply(context.WithoutCancel(runCtx), plan, rows)
 		if transformErr != nil {
 			if errors.Is(transformErr, context.Canceled) {
 				return p.cancelled(ctx, batch.ID, transformErr)
@@ -85,7 +99,7 @@ func (p *BatchProcessor) Run(ctx context.Context, batchID string, plan CompiledP
 			return p.fail(ctx, &batch, "TRANSFORM_FAILED", transformErr)
 		}
 		operationID := batch.ID + ":" + nextCursor
-		written, writeErr := p.adapter.WriteChunk(runCtx, batch.TargetTable, operationID, transformed)
+		written, writeErr := p.adapter.WriteChunk(context.WithoutCancel(runCtx), batch.TargetTable, operationID, transformed)
 		if writeErr != nil {
 			if errors.Is(writeErr, context.Canceled) {
 				return p.cancelled(ctx, batch.ID, writeErr)
@@ -99,7 +113,7 @@ func (p *BatchProcessor) Run(ctx context.Context, batchID string, plan CompiledP
 		batch.Progress.LastRowID = nextCursor
 		batch.Version++
 		batch.UpdatedAt = p.clock()
-		if err := p.store.SaveBatch(ctx, batch, beforeProgress); err != nil {
+		if err := p.store.SaveBatch(ioCtx, batch, beforeProgress); err != nil {
 			return p.failCurrent(ctx, batch.ID, "PROGRESS_SAVE_FAILED", err)
 		}
 		cursor = nextCursor
@@ -119,11 +133,11 @@ func (p *BatchProcessor) Run(ctx context.Context, batchID string, plan CompiledP
 		}
 		return err
 	}
-	return p.store.SaveBatch(ctx, batch, beforeComplete)
+	return p.store.SaveBatch(ioCtx, batch, beforeComplete)
 }
 
 func (p *BatchProcessor) failCurrent(ctx context.Context, batchID, code string, cause error) error {
-	batch, err := p.store.GetBatch(ctx, batchID)
+	batch, err := p.store.GetBatch(context.WithoutCancel(ctx), batchID)
 	if err != nil {
 		return fmt.Errorf("%v; reload failed batch: %w", cause, err)
 	}
@@ -162,14 +176,14 @@ func (p *BatchProcessor) fail(ctx context.Context, batch *domain.Batch, code str
 	if err := batch.Fail(previous, code, batch.Progress, p.clock()); err != nil {
 		return fmt.Errorf("%v; update failed state: %w", cause, err)
 	}
-	if err := p.store.SaveBatch(ctx, *batch, previous); err != nil {
+	if err := p.store.SaveBatch(context.WithoutCancel(ctx), *batch, previous); err != nil {
 		return fmt.Errorf("%v; persist failed state: %w", cause, err)
 	}
 	return cause
 }
 
 func (p *BatchProcessor) cancelled(ctx context.Context, batchID string, cause error) error {
-	batch, err := p.store.GetBatch(ctx, batchID)
+	batch, err := p.store.GetBatch(context.WithoutCancel(ctx), batchID)
 	if err != nil {
 		return fmt.Errorf("%v; reload cancellation state: %w", cause, err)
 	}
@@ -177,21 +191,21 @@ func (p *BatchProcessor) cancelled(ctx context.Context, batchID string, cause er
 	if err := batch.MarkCancelled(previous, p.clock()); err != nil {
 		return fmt.Errorf("%v; transition cancellation: %w", cause, err)
 	}
-	if err := p.store.SaveBatch(ctx, batch, previous); err != nil {
+	if err := p.store.SaveBatch(context.WithoutCancel(ctx), batch, previous); err != nil {
 		return fmt.Errorf("%v; persist cancellation: %w", cause, err)
 	}
 	return cause
 }
 
 func (p *BatchProcessor) Rollback(ctx context.Context, batchID string) (domain.Batch, error) {
-	batch, err := p.store.GetBatch(ctx, batchID)
+	batch, err := p.store.GetBatch(context.WithoutCancel(ctx), batchID)
 	if err != nil {
 		return domain.Batch{}, err
 	}
 	if batch.RollbackCheckpoint == "" {
 		return domain.Batch{}, domain.ErrInvalidTransition
 	}
-	if err := p.adapter.Rollback(ctx, batch.TargetTable, batch.RollbackCheckpoint); err != nil {
+	if err := p.adapter.Rollback(context.WithoutCancel(ctx), batch.TargetTable, batch.RollbackCheckpoint); err != nil {
 		return domain.Batch{}, fmt.Errorf("rollback target: %w", err)
 	}
 	count, err := p.adapter.Count(ctx, batch.TargetTable)
@@ -202,7 +216,7 @@ func (p *BatchProcessor) Rollback(ctx context.Context, batchID string) (domain.B
 	if err := batch.MarkRolledBack(previous, count, p.clock()); err != nil {
 		return domain.Batch{}, err
 	}
-	if err := p.store.SaveBatch(ctx, batch, previous); err != nil {
+	if err := p.store.SaveBatch(context.WithoutCancel(ctx), batch, previous); err != nil {
 		return domain.Batch{}, err
 	}
 	return batch, nil
