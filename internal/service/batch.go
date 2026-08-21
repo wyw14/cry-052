@@ -188,15 +188,19 @@ func (p *BatchProcessor) Rollback(ctx context.Context, batchID string) (domain.B
 	if err != nil {
 		return domain.Batch{}, err
 	}
-	if batch.RollbackCheckpoint == "" {
-		return domain.Batch{}, domain.ErrInvalidTransition
+	plan, err := newRollbackPlan(batch)
+	if err != nil {
+		return domain.Batch{}, err
 	}
-	if err := p.adapter.Rollback(ctx, batch.TargetTable, batch.RollbackCheckpoint); err != nil {
+	if err := p.adapter.Rollback(ctx, plan.TargetTable, plan.Checkpoint); err != nil {
 		return domain.Batch{}, fmt.Errorf("rollback target: %w", err)
 	}
 	count, err := p.adapter.Count(ctx, batch.TargetTable)
 	if err != nil {
 		return domain.Batch{}, fmt.Errorf("verify rollback: %w", err)
+	}
+	if err := plan.Verify(count); err != nil {
+		return domain.Batch{}, err
 	}
 	previous := batch.Version
 	if err := batch.MarkRolledBack(previous, count, p.clock()); err != nil {
