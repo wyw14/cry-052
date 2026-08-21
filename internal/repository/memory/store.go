@@ -9,6 +9,7 @@ import (
 
 type Store struct {
 	mu          sync.RWMutex
+	batchMu     sync.RWMutex
 	datasources map[string]domain.DataSource
 	tables      map[string]domain.TableSchema
 	policies    map[string]domain.PolicyVersion
@@ -20,7 +21,15 @@ type Store struct {
 }
 
 func New() *Store {
-	return &Store{datasources: map[string]domain.DataSource{}, tables: map[string]domain.TableSchema{}, policies: map[string]domain.PolicyVersion{}, previews: map[string]domain.Preview{}, batches: map[string]domain.Batch{}, idempotency: map[string]string{}, approvals: map[string]domain.Approval{}}
+	return &Store{
+		datasources: map[string]domain.DataSource{},
+		tables:      map[string]domain.TableSchema{},
+		policies:    map[string]domain.PolicyVersion{},
+		previews:    map[string]domain.Preview{},
+		batches:     map[string]domain.Batch{},
+		idempotency: map[string]string{},
+		approvals:   map[string]domain.Approval{},
+	}
 }
 
 func clone[T any](value T) T {

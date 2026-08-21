@@ -3,12 +3,58 @@ package service
 import (
 	"context"
 	"errors"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/wyw14/cry052/internal/domain"
 	"github.com/wyw14/cry052/internal/repository/memory"
 )
+
+func TestDiagnosisConcurrentBatchWritersBothCommitStaleVersion(t *testing.T) {
+	store := memory.New()
+	batch := domain.Batch{ID: "diagnosis-batch", IdempotencyKey: "diagnosis-key", Status: domain.BatchPending, Version: 1, CreatedAt: time.Now()}
+	if err := store.CreateBatch(context.Background(), batch); err != nil {
+		t.Fatal(err)
+	}
+	start := make(chan struct{})
+	var ready sync.WaitGroup
+	ready.Add(2)
+	var joined sync.WaitGroup
+	joined.Add(2)
+	var successes atomic.Int32
+	var conflicts atomic.Int32
+	for worker := 0; worker < 2; worker++ {
+		go func() {
+			defer joined.Done()
+			candidate, err := store.GetBatch(context.Background(), batch.ID)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			ready.Done()
+			<-start
+			candidate.Status = domain.BatchRunning
+			candidate.Version = 2
+			err = store.SaveBatch(context.Background(), candidate, 1)
+			switch {
+			case err == nil:
+				successes.Add(1)
+			case errors.Is(err, domain.ErrVersionConflict):
+				conflicts.Add(1)
+			default:
+				t.Error(err)
+			}
+		}()
+	}
+	ready.Wait()
+	close(start)
+	joined.Wait()
+	if successes.Load() != 1 || conflicts.Load() != 1 {
+		t.Fatalf("success=%d conflict=%d", successes.Load(), conflicts.Load())
+	}
+}
 
 func TestBatchProcessorCancellationPersistsCancelledState(t *testing.T) {
 	store := memory.New()
