@@ -99,9 +99,7 @@ func (a *App) UpdateTableClassification(ctx context.Context, actor Actor, tableI
 		return domain.TableSchema{}, domain.ErrVersionConflict
 	}
 	previous := table.Version
-	table.Fields = fields
-	table.Version++
-	if err := table.Validate(); err != nil {
+	if err := table.ApplyClassification(fields); err != nil {
 		return domain.TableSchema{}, err
 	}
 	audit := a.newAuditEvent(actor, "catalog.classification.update", "table/"+table.ID, "success", map[string]string{"qualified_name": table.QualifiedName()})

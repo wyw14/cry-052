@@ -66,3 +66,12 @@ func (t TableSchema) Field(name string) (FieldSchema, bool) {
 	}
 	return FieldSchema{}, false
 }
+
+func (t *TableSchema) ApplyClassification(fields []FieldSchema) error {
+	updated, err := replaceClassification(*t, fields)
+	if err != nil {
+		return err
+	}
+	*t = updated
+	return nil
+}
