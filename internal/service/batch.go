@@ -70,7 +70,7 @@ func (p *BatchProcessor) Run(ctx context.Context, batchID string, plan CompiledP
 		rows, nextCursor, readErr := p.adapter.ReadChunk(runCtx, batch.SourceTable, cursor, p.chunkSize)
 		if readErr != nil {
 			if errors.Is(readErr, context.Canceled) {
-				return p.cancelled(ctx, batch.ID, readErr)
+				return p.settleCancellation(ctx, batch.ID, readErr)
 			}
 			return p.fail(ctx, &batch, "SOURCE_READ_FAILED", readErr)
 		}
@@ -80,7 +80,7 @@ func (p *BatchProcessor) Run(ctx context.Context, batchID string, plan CompiledP
 		transformed, _, _, transformErr := p.engine.Apply(runCtx, plan, rows)
 		if transformErr != nil {
 			if errors.Is(transformErr, context.Canceled) {
-				return p.cancelled(ctx, batch.ID, transformErr)
+				return p.settleCancellation(ctx, batch.ID, transformErr)
 			}
 			return p.fail(ctx, &batch, "TRANSFORM_FAILED", transformErr)
 		}
@@ -88,7 +88,7 @@ func (p *BatchProcessor) Run(ctx context.Context, batchID string, plan CompiledP
 		written, writeErr := p.adapter.WriteChunk(runCtx, batch.TargetTable, operationID, transformed)
 		if writeErr != nil {
 			if errors.Is(writeErr, context.Canceled) {
-				return p.cancelled(ctx, batch.ID, writeErr)
+				return p.settleCancellation(ctx, batch.ID, writeErr)
 			}
 			return p.fail(ctx, &batch, "TARGET_WRITE_FAILED", writeErr)
 		}
@@ -104,7 +104,7 @@ func (p *BatchProcessor) Run(ctx context.Context, batchID string, plan CompiledP
 		}
 		cursor = nextCursor
 		if err := runCtx.Err(); err != nil {
-			return p.cancelled(ctx, batch.ID, err)
+			return p.settleCancellation(ctx, batch.ID, err)
 		}
 	}
 	finalTargetRows, err := p.adapter.Count(ctx, batch.TargetTable)
