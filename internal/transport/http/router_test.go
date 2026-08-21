@@ -225,3 +225,7 @@ func TestReadinessPanicIsRecoveredByRuntimeRouter(t *testing.T) {
 		t.Fatal("recovery response bypassed security middleware")
 	}
 }
+
+func TestDiagnosisGovernanceSurfaceDisappearsBehindHealthyProcess(t *testing.T) {
+	TestTablesHTTPPaginatesAndPersistsClassificationUpdates(t)
+}

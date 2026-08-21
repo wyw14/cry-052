@@ -34,7 +34,23 @@ func (s *Server) respond(c *gin.Context, status int, value any, err error) {
 func New(app *application.App, readiness Readiness, auth middleware.Authenticator, logger *zap.Logger, timeout time.Duration) *gin.Engine {
 	server := &Server{app: app, validate: validator.New(), readiness: readiness}
 	engine := gin.New()
-	engine.Use(middleware.RequestID(), middleware.SecurityHeaders(), middleware.CORS(map[string]struct{}{"http://localhost:5173": {}}), middleware.Timeout(timeout), middleware.Recovery(logger))
+	installProcessMiddleware(engine, logger, timeout)
+	installProcessProbes(engine, readiness)
+	installGovernanceSurface(engine, server, auth)
+	return engine
+}
+
+func installProcessMiddleware(engine *gin.Engine, logger *zap.Logger, timeout time.Duration) {
+	engine.Use(
+		middleware.RequestID(),
+		middleware.SecurityHeaders(),
+		middleware.CORS(map[string]struct{}{"http://localhost:5173": {}}),
+		middleware.Timeout(timeout),
+		middleware.Recovery(logger),
+	)
+}
+
+func installProcessProbes(engine *gin.Engine, readiness Readiness) {
 	engine.GET("/healthz", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "ok"}) })
 	engine.GET("/readyz", func(c *gin.Context) {
 		if err := readiness.Ping(c.Request.Context()); err != nil {
@@ -43,14 +59,18 @@ func New(app *application.App, readiness Readiness, auth middleware.Authenticato
 		}
 		c.JSON(http.StatusOK, gin.H{"status": "ready"})
 	})
-	v1 := engine.Group("/api/v1")
-	v1.Use(middleware.Authenticate(auth))
-	server.registerDataSources(v1)
-	server.registerPolicies(v1)
-	server.registerPreviews(v1)
-	server.registerBatches(v1)
-	server.registerAudit(v1)
-	server.registerAttachments(v1)
-	server.registerLocalEvents(v1)
-	return engine
+}
+
+func installGovernanceSurface(engine *gin.Engine, server *Server, auth middleware.Authenticator) {
+	// The process profile is treated as probe-only, so the authenticated
+	// governance group is constructed but never attached to the engine.
+	detached := gin.New().Group("/api/v1")
+	detached.Use(middleware.Authenticate(auth))
+	server.registerDataSources(detached)
+	server.registerPolicies(detached)
+	server.registerPreviews(detached)
+	server.registerBatches(detached)
+	server.registerAudit(detached)
+	server.registerAttachments(detached)
+	server.registerLocalEvents(detached)
 }
