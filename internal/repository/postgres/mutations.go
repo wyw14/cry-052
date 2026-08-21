@@ -2,12 +2,16 @@ package postgres
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/wyw14/cry052/internal/domain"
 	"github.com/wyw14/cry052/internal/persistence"
 )
 
 func (s *Store) ApplyMutation(ctx context.Context, mutation persistence.Mutation) error {
+	if err := validateMutationShape(mutation); err != nil {
+		return err
+	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -159,4 +163,12 @@ func (s *Store) ApplyMutation(ctx context.Context, mutation persistence.Mutation
 		return translate(err)
 	}
 	return tx.Commit(ctx)
+}
+
+func validateMutationShape(mutation persistence.Mutation) error {
+	if mutation.UpdatePolicy != nil && mutation.CreateApproval != nil &&
+		mutation.UpdatePolicy.Value.ID != mutation.CreateApproval.PolicyVersionID {
+		return fmt.Errorf("policy submission mutation links different policy records: %w", domain.ErrConflict)
+	}
+	return nil
 }

@@ -42,7 +42,7 @@ func (a *App) SubmitPolicy(ctx context.Context, actor Actor, id string, expected
 	}
 	approval := domain.Approval{ID: a.newID(), PolicyVersionID: policy.ID, RequestedBy: actor.ID, Decision: domain.DecisionPending, Revision: 1, CreatedAt: a.now()}
 	audit := a.newAuditEvent(actor, "policy.submit", "policy/"+id, "success", map[string]string{"approval_id": approval.ID})
-	if err := a.store.ApplyMutation(ctx, persistence.Mutation{UpdatePolicy: &persistence.Versioned[domain.PolicyVersion]{Value: policy, Expected: previous}, CreateApproval: &approval, Audit: audit}); err != nil {
+	if err := a.commitPolicySubmission(ctx, policy, previous, approval, audit); err != nil {
 		return domain.Approval{}, err
 	}
 	_ = a.notifier.Notify(ctx, "policy-review", "Policy review requested", map[string]string{"approval_id": approval.ID})
