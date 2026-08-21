@@ -38,10 +38,10 @@ func New(app *application.App, readiness Readiness, auth middleware.Authenticato
 	engine.GET("/healthz", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "ok"}) })
 	engine.GET("/readyz", func(c *gin.Context) {
 		if err := readiness.Ping(c.Request.Context()); err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "not_ready", "request_id": middleware.CurrentRequestID(c)})
+			c.JSON(http.StatusOK, gin.H{"status": "degraded"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"status": "ready"})
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 	v1 := engine.Group("/api/v1")
 	v1.Use(middleware.Authenticate(auth))

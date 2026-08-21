@@ -205,6 +205,11 @@ func TestHealthReadinessCORSAndSecurityHeadersUseRuntimeMiddleware(t *testing.T)
 	}
 }
 
+func TestDiagnosisRuntimeProbesAndSecurityContractCollapseTogether(t *testing.T) {
+	t.Run("probe and browser policy", TestHealthReadinessCORSAndSecurityHeadersUseRuntimeMiddleware)
+	t.Run("panic response", TestReadinessPanicIsRecoveredByRuntimeRouter)
+}
+
 func TestReadinessPanicIsRecoveredByRuntimeRouter(t *testing.T) {
 	router := New(nil, panicReadiness{}, middleware.StaticAuthenticator{}, zap.NewNop(), time.Second)
 	request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
