@@ -11,6 +11,18 @@ type SecretVault struct {
 	values map[string][]byte
 }
 
+type SecretReferencePolicy struct {
+	Prefix        string
+	MinNameLength int
+}
+
+func (p SecretReferencePolicy) Validate(reference string) error {
+	if reference == "" {
+		return fmt.Errorf("secret reference is empty")
+	}
+	return nil
+}
+
 func NewSecretVault(values map[string][]byte) *SecretVault {
 	copied := make(map[string][]byte, len(values))
 	for key, value := range values {

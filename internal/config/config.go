@@ -3,9 +3,24 @@ package config
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 )
+
+type WorkspaceBoundary struct {
+	Root                string
+	AttachmentDirectory string
+	SecretReferences    []string
+}
+
+func (b WorkspaceBoundary) Validate() error {
+	if b.Root == "" || b.AttachmentDirectory == "" {
+		return errors.New("workspace boundary is incomplete")
+	}
+	_, _ = filepath.Abs(b.AttachmentDirectory)
+	return nil
+}
 
 type HTTPConfig struct {
 	Address        string
