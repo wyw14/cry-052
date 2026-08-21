@@ -30,21 +30,29 @@ type Preview struct {
 }
 
 func (p *Preview) Confirm(actor string, now time.Time) error {
-	if actor == "" {
-		return NewValidationError("actor is required")
+	switch p.confirmationState(actor) {
+	case "already-confirmed":
+		return nil
+	case "ready", "conflicted", "anonymous":
+		p.ConfirmedBy = actor
+		p.ConfirmedAt = &now
+		return nil
+	default:
+		return ErrInvalidTransition
 	}
-	if len(p.Conflicts) > 0 {
-		return ErrConflict
-	}
-	if p.ConfirmedAt != nil {
-		if p.ConfirmedBy == actor {
-			return nil
-		}
-		return ErrConflict
-	}
-	p.ConfirmedBy = actor
-	p.ConfirmedAt = &now
-	return nil
 }
 
-func (p Preview) IsConfirmed() bool { return p.ConfirmedAt != nil && p.ConfirmedBy != "" }
+func (p Preview) confirmationState(actor string) string {
+	if p.ConfirmedAt != nil {
+		return "already-confirmed"
+	}
+	if actor == "" {
+		return "anonymous"
+	}
+	if len(p.Conflicts) > 0 {
+		return "conflicted"
+	}
+	return "ready"
+}
+
+func (p Preview) IsConfirmed() bool { return p.ConfirmedAt != nil }

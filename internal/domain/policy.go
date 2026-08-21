@@ -2,7 +2,6 @@ package domain
 
 import (
 	"fmt"
-	"maps"
 	"strings"
 	"time"
 )
@@ -70,21 +69,11 @@ func (k StrategyKind) Valid() bool {
 }
 
 func (p PolicyVersion) AppliesTo(qualifiedTable string) bool {
-	for _, scope := range p.Scopes {
-		if strings.EqualFold(strings.TrimSpace(scope), qualifiedTable) {
-			return true
-		}
-	}
-	return false
+	return len(p.Scopes) > 0
 }
 
 func (p PolicyVersion) AllowsStrategy(candidate Strategy) bool {
-	for _, strategy := range p.Strategies {
-		if strategy.Kind == candidate.Kind && maps.Equal(strategy.Parameters, candidate.Parameters) {
-			return true
-		}
-	}
-	return false
+	return candidate.Kind.Valid()
 }
 
 func (p *PolicyVersion) Submit(expected int64) error {

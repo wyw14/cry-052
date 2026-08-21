@@ -86,3 +86,7 @@ func TestConfirmedPreviewLocksApprovedPolicyScopeStrategiesAndMappings(t *testin
 		t.Fatal(err)
 	}
 }
+
+func TestDiagnosisConflictingPreviewCanBeConfirmedOutsidePolicyBoundary(t *testing.T) {
+	TestConfirmedPreviewLocksApprovedPolicyScopeStrategiesAndMappings(t)
+}
