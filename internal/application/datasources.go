@@ -14,6 +14,10 @@ type CreateDataSource struct {
 	ConnectionReference string
 }
 
+func ValidateDataSourcePage(request domain.PageRequest) (domain.PageRequest, error) {
+	return request.Normalize(map[string]struct{}{"created_at": {}, "name": {}, "status": {}}, map[string]struct{}{"kind": {}, "status": {}})
+}
+
 func (a *App) CreateDataSource(ctx context.Context, actor Actor, command CreateDataSource) (domain.DataSource, error) {
 	if err := actor.Require("data_admin"); err != nil {
 		return domain.DataSource{}, err
@@ -52,7 +56,7 @@ func (a *App) ListDataSources(ctx context.Context, actor Actor, request domain.P
 	if err := actor.Require("data_admin", "auditor", "policy_reviewer"); err != nil {
 		return domain.Page[domain.DataSource]{}, err
 	}
-	normalized, err := request.Normalize(map[string]struct{}{"created_at": {}, "name": {}, "status": {}}, map[string]struct{}{"kind": {}, "status": {}})
+	normalized, err := ValidateDataSourcePage(request)
 	if err != nil {
 		return domain.Page[domain.DataSource]{}, err
 	}

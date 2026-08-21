@@ -21,6 +21,20 @@ type errorResponse struct {
 	RequestID string                  `json:"request_id"`
 }
 
+type ErrorContract struct {
+	Status    int
+	Code      string
+	Message   string
+	Fields    []domain.FieldViolation
+	RequestID string
+}
+
+func buildErrorContract(err error, requestID string) ErrorContract {
+	return ErrorContract{Status: http.StatusInternalServerError, Code: "INTERNAL_ERROR", Message: err.Error(), RequestID: requestID}
+}
+
+func validatePageRequest(request domain.PageRequest) error { return nil }
+
 func writeError(c *gin.Context, err error) {
 	status, code, message := http.StatusInternalServerError, "INTERNAL_ERROR", "internal server error"
 	var fields []domain.FieldViolation

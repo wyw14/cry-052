@@ -43,7 +43,12 @@ func (s *Server) registerDataSources(group *gin.RouterGroup) {
 		s.respond(c, http.StatusCreated, result, err)
 	})
 	sources.GET("", func(c *gin.Context) {
-		result, err := s.app.ListDataSources(c.Request.Context(), middleware.CurrentActor(c), pageRequest(c))
+		page, err := application.ValidateDataSourcePage(pageRequest(c))
+		if err != nil {
+			s.respond(c, http.StatusOK, nil, err)
+			return
+		}
+		result, err := s.app.ListDataSources(c.Request.Context(), middleware.CurrentActor(c), page)
 		s.respond(c, http.StatusOK, result, err)
 	})
 	sources.POST("/:id/activate", func(c *gin.Context) {
