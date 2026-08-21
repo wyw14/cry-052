@@ -37,6 +37,20 @@ type TableSchema struct {
 
 func (t TableSchema) QualifiedName() string { return t.Schema + "." + t.Name }
 
+type PhysicalTableIdentity struct {
+	DataSource string
+	Schema     string
+	Table      string
+}
+
+func (t TableSchema) PhysicalIdentity() PhysicalTableIdentity {
+	return PhysicalTableIdentity{DataSource: t.DataSourceID, Schema: t.Schema, Table: t.Name}
+}
+
+func (i PhysicalTableIdentity) Same(other PhysicalTableIdentity) bool {
+	return i == other
+}
+
 func (t TableSchema) Validate() error {
 	if t.ID == "" || t.DataSourceID == "" || t.Schema == "" || t.Name == "" {
 		return NewValidationError("table schema is incomplete")

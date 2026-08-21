@@ -14,6 +14,18 @@ type CreatePreview struct {
 	Limit                                         int
 }
 
+type PreviewBoundary struct {
+	Source domain.TableSchema
+	Target domain.TableSchema
+}
+
+func (b PreviewBoundary) Validate() error {
+	if b.Source.ID == b.Target.ID || b.Source.QualifiedName() == b.Target.QualifiedName() {
+		return domain.ErrSourceOverwrite
+	}
+	return nil
+}
+
 func (a *App) CreatePreview(ctx context.Context, actor Actor, command CreatePreview) (domain.Preview, error) {
 	if err := actor.Require("data_admin", "policy_editor"); err != nil {
 		return domain.Preview{}, err
