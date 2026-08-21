@@ -15,6 +15,9 @@ type CreatePreview struct {
 }
 
 func (a *App) CreatePreview(ctx context.Context, actor Actor, command CreatePreview) (domain.Preview, error) {
+	if err := a.wiring.requirePreviewCreation(); err != nil {
+		return domain.Preview{}, err
+	}
 	if err := actor.Require("data_admin", "policy_editor"); err != nil {
 		return domain.Preview{}, err
 	}

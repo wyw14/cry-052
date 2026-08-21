@@ -21,6 +21,7 @@ type App struct {
 	exporter  *service.ReportExporter
 	now       func() time.Time
 	newID     func() string
+	wiring    workflowWiring
 }
 
 type Dependencies struct {
@@ -46,5 +47,5 @@ func New(deps Dependencies) *App {
 	if deps.NewID == nil {
 		deps.NewID = uuid.NewString
 	}
-	return &App{store: deps.Store, samples: deps.Samples, notifier: deps.Notifier, redactor: deps.Redactor, files: deps.Files, callbacks: deps.Callbacks, scheduler: deps.Scheduler, compiler: deps.Compiler, preview: deps.Preview, processor: deps.Processor, exporter: deps.Exporter, now: deps.Now, newID: deps.NewID}
+	return &App{store: deps.Store, samples: deps.Samples, notifier: deps.Notifier, redactor: deps.Redactor, files: deps.Files, callbacks: deps.Callbacks, scheduler: deps.Scheduler, compiler: deps.Compiler, preview: deps.Preview, processor: deps.Processor, exporter: deps.Exporter, now: deps.Now, newID: deps.NewID, wiring: inspectWorkflowWiring(deps)}
 }
