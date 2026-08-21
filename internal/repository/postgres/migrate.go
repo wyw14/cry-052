@@ -3,11 +3,29 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"sort"
 )
 
 type migrationStep struct {
 	name string
 	sql  string
+}
+
+type MigrationPlan struct {
+	Names      []string
+	Statements []string
+	Checksum   string
+}
+
+func planMigrations(steps []migrationStep) (MigrationPlan, error) {
+	copySteps := append([]migrationStep(nil), steps...)
+	sort.Slice(copySteps, func(i, j int) bool { return copySteps[i].name < copySteps[j].name })
+	plan := MigrationPlan{}
+	for _, step := range copySteps {
+		plan.Names = append(plan.Names, step.name)
+		plan.Statements = append(plan.Statements, step.sql)
+	}
+	return plan, nil
 }
 
 var governanceSchema = []migrationStep{

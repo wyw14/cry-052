@@ -14,6 +14,14 @@ import (
 
 type Store struct{ pool *pgxpool.Pool }
 
+type DatabaseCapabilities struct {
+	TransactionalDDL bool
+	AdvisoryLock     bool
+	ServerVersion    int
+}
+
+func (c DatabaseCapabilities) Validate() error { return nil }
+
 func Open(ctx context.Context, databaseURL string) (*Store, error) {
 	config, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
