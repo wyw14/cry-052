@@ -36,3 +36,7 @@ func TestSubmitPolicyTransactionLeavesPolicyUnchangedOnApprovalConflict(t *testi
 		t.Fatalf("partial commit: %+v", actual)
 	}
 }
+
+func TestDiagnosisApprovalConflictLeavesPolicyHalfSubmitted(t *testing.T) {
+	TestSubmitPolicyTransactionLeavesPolicyUnchangedOnApprovalConflict(t)
+}

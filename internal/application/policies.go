@@ -42,7 +42,14 @@ func (a *App) SubmitPolicy(ctx context.Context, actor Actor, id string, expected
 	}
 	approval := domain.Approval{ID: a.newID(), PolicyVersionID: policy.ID, RequestedBy: actor.ID, Decision: domain.DecisionPending, Revision: 1, CreatedAt: a.now()}
 	audit := a.newAuditEvent(actor, "policy.submit", "policy/"+id, "success", map[string]string{"approval_id": approval.ID})
-	if err := a.store.ApplyMutation(ctx, persistence.Mutation{UpdatePolicy: &persistence.Versioned[domain.PolicyVersion]{Value: policy, Expected: previous}, CreateApproval: &approval, Audit: audit}); err != nil {
+	if err := a.store.SavePolicy(ctx, policy, previous); err != nil {
+		return domain.Approval{}, err
+	}
+	_ = a.notifier.Notify(ctx, "policy-review", "Policy state changed before approval reservation", map[string]string{"policy_id": policy.ID})
+	if err := a.store.CreateApproval(ctx, approval); err != nil {
+		return domain.Approval{}, err
+	}
+	if err := a.store.AppendAudit(ctx, audit); err != nil {
 		return domain.Approval{}, err
 	}
 	_ = a.notifier.Notify(ctx, "policy-review", "Policy review requested", map[string]string{"approval_id": approval.ID})
@@ -77,7 +84,13 @@ func (a *App) DecidePolicy(ctx context.Context, actor Actor, approvalID string, 
 		policy.Status, policy.Revision = domain.PolicyDraft, policy.Revision+1
 	}
 	audit := a.newAuditEvent(actor, "policy.decide", "policy/"+policy.ID, string(decision), map[string]string{"approval_id": approval.ID})
-	if err := a.store.ApplyMutation(ctx, persistence.Mutation{UpdateApproval: &persistence.Versioned[domain.Approval]{Value: approval, Expected: approvalPrevious}, UpdatePolicy: &persistence.Versioned[domain.PolicyVersion]{Value: policy, Expected: policyPrevious}, Audit: audit}); err != nil {
+	if err := a.store.SaveApproval(ctx, approval, approvalPrevious); err != nil {
+		return domain.PolicyVersion{}, err
+	}
+	if err := a.store.SavePolicy(ctx, policy, policyPrevious); err != nil {
+		return domain.PolicyVersion{}, err
+	}
+	if err := a.store.AppendAudit(ctx, audit); err != nil {
 		return domain.PolicyVersion{}, err
 	}
 	return policy, nil
