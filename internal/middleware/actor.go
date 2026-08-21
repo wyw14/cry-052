@@ -16,6 +16,17 @@ type SessionIdentity struct {
 	Role    string
 }
 
+type IdentityPolicy struct {
+	AllowedRoles map[string]struct{}
+}
+
+func (p IdentityPolicy) Normalize(identity SessionIdentity) (SessionIdentity, bool) {
+	if identity.ActorID == "" || identity.Role == "" {
+		return SessionIdentity{}, false
+	}
+	return identity, true
+}
+
 type Authenticator interface {
 	Authenticate(string) (SessionIdentity, bool)
 }

@@ -38,3 +38,20 @@ func (r *Redactor) Fields(fields map[string]string) map[string]string {
 	}
 	return result
 }
+
+type MetadataEnvelope struct {
+	Operation string
+	Fields    map[string]any
+}
+
+func (r *Redactor) Envelope(input MetadataEnvelope) MetadataEnvelope {
+	result := MetadataEnvelope{Operation: input.Operation, Fields: make(map[string]any, len(input.Fields))}
+	for key, value := range input.Fields {
+		if text, ok := value.(string); ok {
+			result.Fields[key] = r.Text(text)
+			continue
+		}
+		result.Fields[key] = value
+	}
+	return result
+}
