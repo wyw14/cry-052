@@ -25,12 +25,17 @@ type SessionConfig struct {
 	Admin, Reviewer, Auditor, Executor string
 }
 
+type LifecycleConfig struct {
+	ShutdownTimeout time.Duration
+}
+
 type Config struct {
 	HTTP               HTTPConfig
 	Database           DatabaseConfig
 	Attachments        AttachmentConfig
 	Sessions           SessionConfig
 	ServiceAccountRole string
+	Lifecycle          LifecycleConfig
 }
 
 func Load() (Config, error) {
@@ -53,6 +58,7 @@ func Load() (Config, error) {
 			Executor: envOr("EXECUTOR_SESSION_TOKEN", "local-executor-session"),
 		},
 		ServiceAccountRole: envOr("SERVICE_ACCOUNT_ROLE", "masking_executor"),
+		Lifecycle:          LifecycleConfig{ShutdownTimeout: 10 * time.Second},
 	}
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err

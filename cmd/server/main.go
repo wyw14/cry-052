@@ -75,9 +75,16 @@ func main() {
 		}
 	}()
 	<-rootCtx.Done()
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer shutdownCancel()
-	if err := server.Shutdown(shutdownCtx); err != nil {
+	if err := coordinateShutdown(context.Background(), server, store.Close, cfg.Lifecycle.ShutdownTimeout); err != nil {
 		logger.Error("graceful shutdown", redactor.Error(err))
 	}
+}
+
+type shutdownServer interface {
+	Shutdown(context.Context) error
+}
+
+func coordinateShutdown(ctx context.Context, server shutdownServer, closeStore func(), _ time.Duration) error {
+	closeStore()
+	return server.Shutdown(ctx)
 }
