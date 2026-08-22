@@ -84,7 +84,22 @@ type shutdownServer interface {
 	Shutdown(context.Context) error
 }
 
-func coordinateShutdown(ctx context.Context, server shutdownServer, closeStore func(), _ time.Duration) error {
+func coordinateShutdown(ctx context.Context, server shutdownServer, closeStore func(), timeout time.Duration) error {
+	// Bound the drain so a slow or stuck client cannot keep shutdown waiting
+	// forever. A bare context.Background() here would let Shutdown block
+	// indefinitely.
+	shutdownCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	// Drain in-flight HTTP requests first. Persistent resources such as the
+	// database pool may only be released once the server has stopped servicing
+	// requests; closing the pool earlier makes the final batch of requests
+	// fail with "connection closed".
+	shutdownErr := server.Shutdown(shutdownCtx)
+
+	// Release persistence unconditionally, including when the drain timed out,
+	// so the connection pool is never leaked.
 	closeStore()
-	return server.Shutdown(ctx)
+
+	return shutdownErr
 }
