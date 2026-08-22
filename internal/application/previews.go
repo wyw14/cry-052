@@ -20,7 +20,7 @@ type PreviewBoundary struct {
 }
 
 func (b PreviewBoundary) Validate() error {
-	if b.Source.ID == b.Target.ID || b.Source.QualifiedName() == b.Target.QualifiedName() {
+	if b.Source.PhysicalIdentity().Same(b.Target.PhysicalIdentity()) {
 		return domain.ErrSourceOverwrite
 	}
 	return nil
@@ -38,7 +38,7 @@ func (a *App) CreatePreview(ctx context.Context, actor Actor, command CreatePrev
 	if err != nil {
 		return domain.Preview{}, fmt.Errorf("target table: %w", err)
 	}
-	if source.ID == target.ID || source.QualifiedName() == target.QualifiedName() {
+	if source.PhysicalIdentity().Same(target.PhysicalIdentity()) {
 		return domain.Preview{}, domain.ErrSourceOverwrite
 	}
 	policy, err := a.store.GetPolicy(ctx, command.PolicyVersionID)

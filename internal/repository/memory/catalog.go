@@ -17,7 +17,7 @@ func (s *Store) PutTable(ctx context.Context, table domain.TableSchema) error {
 		return domain.ErrConflict
 	}
 	for _, existing := range s.tables {
-		if existing.DataSourceID == table.DataSourceID && existing.QualifiedName() == table.QualifiedName() {
+		if existing.PhysicalIdentity().Same(table.PhysicalIdentity()) {
 			return domain.ErrConflict
 		}
 	}

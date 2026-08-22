@@ -44,11 +44,28 @@ type PhysicalTableIdentity struct {
 }
 
 func (t TableSchema) PhysicalIdentity() PhysicalTableIdentity {
-	return PhysicalTableIdentity{DataSource: t.DataSourceID, Schema: t.Schema, Table: t.Name}
+	return PhysicalTableIdentity{
+		DataSource: normalizePhysicalIdentifier(t.DataSourceID),
+		Schema:     normalizePhysicalIdentifier(t.Schema),
+		Table:      normalizePhysicalIdentifier(t.Name),
+	}
 }
 
 func (i PhysicalTableIdentity) Same(other PhysicalTableIdentity) bool {
 	return i == other
+}
+
+// normalizePhysicalIdentifier folds a physical identifier (data source id,
+// schema, or table name) into a canonical form so that case, surrounding
+// whitespace, and quoted-identifier aliases of the same physical table compare
+// equal. PostgreSQL folds unquoted identifiers to lowercase and treats "Name"
+// as a quoted alias; we additionally strip the surrounding double quotes so a
+// catalogued alias such as "public"."customers" cannot masquerade as a distinct
+// target and overwrite its source table.
+func normalizePhysicalIdentifier(value string) string {
+	value = strings.TrimSpace(value)
+	value = strings.Trim(value, `"`)
+	return strings.ToLower(strings.TrimSpace(value))
 }
 
 func (t TableSchema) Validate() error {
