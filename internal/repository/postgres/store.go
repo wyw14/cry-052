@@ -20,7 +20,23 @@ type DatabaseCapabilities struct {
 	ServerVersion    int
 }
 
-func (c DatabaseCapabilities) Validate() error { return nil }
+// Validate enforces the safety properties the governance migration relies on.
+// Transactional DDL is required so the whole migration group commits or rolls
+// back atomically; advisory locking is required so concurrent first-time
+// initializations do not interleave their DDL. A supported server version is
+// required so the migration does not run against an untested engine.
+func (c DatabaseCapabilities) Validate() error {
+	if !c.TransactionalDDL {
+		return fmt.Errorf("database does not support transactional DDL; governance migration must commit atomically")
+	}
+	if !c.AdvisoryLock {
+		return fmt.Errorf("database does not support advisory locking; governance migration cannot serialize concurrent runs")
+	}
+	if c.ServerVersion != 0 && c.ServerVersion < minGovernanceServerVersion {
+		return fmt.Errorf("server version %d below required minimum %d", c.ServerVersion, minGovernanceServerVersion)
+	}
+	return nil
+}
 
 func Open(ctx context.Context, databaseURL string) (*Store, error) {
 	config, err := pgxpool.ParseConfig(databaseURL)
