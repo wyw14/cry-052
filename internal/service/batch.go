@@ -59,6 +59,10 @@ func (p *BatchProcessor) Run(ctx context.Context, batchID string, plan CompiledP
 	if err := p.store.SaveBatch(ctx, batch, previousVersion); err != nil {
 		return err
 	}
+	// settleCtx detaches terminal-state persistence from the caller's request
+	// lifetime: when the request is cancelled mid-read, settlement still records
+	// cancelled/failed state instead of leaving the batch stuck in running.
+	settleCtx := context.WithoutCancel(ctx)
 	runCtx, cancel := context.WithCancel(ctx)
 	if err := p.track(batch.ID, cancel); err != nil {
 		cancel()
@@ -70,9 +74,9 @@ func (p *BatchProcessor) Run(ctx context.Context, batchID string, plan CompiledP
 		rows, nextCursor, readErr := p.adapter.ReadChunk(runCtx, batch.SourceTable, cursor, p.chunkSize)
 		if readErr != nil {
 			if errors.Is(readErr, context.Canceled) {
-				return p.settleCancellation(ctx, batch.ID, readErr)
+				return p.settleCancellation(settleCtx, batch.ID, readErr)
 			}
-			return p.fail(ctx, &batch, "SOURCE_READ_FAILED", readErr)
+			return p.fail(settleCtx, &batch, "SOURCE_READ_FAILED", readErr)
 		}
 		if len(rows) == 0 {
 			break
@@ -80,17 +84,17 @@ func (p *BatchProcessor) Run(ctx context.Context, batchID string, plan CompiledP
 		transformed, _, _, transformErr := p.engine.Apply(runCtx, plan, rows)
 		if transformErr != nil {
 			if errors.Is(transformErr, context.Canceled) {
-				return p.settleCancellation(ctx, batch.ID, transformErr)
+				return p.settleCancellation(settleCtx, batch.ID, transformErr)
 			}
-			return p.fail(ctx, &batch, "TRANSFORM_FAILED", transformErr)
+			return p.fail(settleCtx, &batch, "TRANSFORM_FAILED", transformErr)
 		}
 		operationID := batch.ID + ":" + nextCursor
 		written, writeErr := p.adapter.WriteChunk(runCtx, batch.TargetTable, operationID, transformed)
 		if writeErr != nil {
 			if errors.Is(writeErr, context.Canceled) {
-				return p.settleCancellation(ctx, batch.ID, writeErr)
+				return p.settleCancellation(settleCtx, batch.ID, writeErr)
 			}
-			return p.fail(ctx, &batch, "TARGET_WRITE_FAILED", writeErr)
+			return p.fail(settleCtx, &batch, "TARGET_WRITE_FAILED", writeErr)
 		}
 		beforeProgress := batch.Version
 		batch.Progress.Read += int64(len(rows))
@@ -99,27 +103,27 @@ func (p *BatchProcessor) Run(ctx context.Context, batchID string, plan CompiledP
 		batch.Progress.LastRowID = nextCursor
 		batch.Version++
 		batch.UpdatedAt = p.clock()
-		if err := p.store.SaveBatch(ctx, batch, beforeProgress); err != nil {
-			return p.failCurrent(ctx, batch.ID, "PROGRESS_SAVE_FAILED", err)
+		if err := p.store.SaveBatch(settleCtx, batch, beforeProgress); err != nil {
+			return p.failCurrent(settleCtx, batch.ID, "PROGRESS_SAVE_FAILED", err)
 		}
 		cursor = nextCursor
 		if err := runCtx.Err(); err != nil {
-			return p.settleCancellation(ctx, batch.ID, err)
+			return p.settleCancellation(settleCtx, batch.ID, err)
 		}
 	}
-	finalTargetRows, err := p.adapter.Count(ctx, batch.TargetTable)
+	finalTargetRows, err := p.adapter.Count(settleCtx, batch.TargetTable)
 	if err != nil {
-		return p.fail(ctx, &batch, "TARGET_COUNT_FAILED", err)
+		return p.fail(settleCtx, &batch, "TARGET_COUNT_FAILED", err)
 	}
 	difference := finalTargetRows - (batch.InitialTargetRows + batch.Progress.Written)
 	beforeComplete := batch.Version
 	if err := batch.Complete(beforeComplete, finalTargetRows, difference, p.clock()); err != nil {
 		if difference != 0 {
-			return p.fail(ctx, &batch, "RECONCILIATION_FAILED", fmt.Errorf("target row difference is %d", difference))
+			return p.fail(settleCtx, &batch, "RECONCILIATION_FAILED", fmt.Errorf("target row difference is %d", difference))
 		}
 		return err
 	}
-	return p.store.SaveBatch(ctx, batch, beforeComplete)
+	return p.store.SaveBatch(settleCtx, batch, beforeComplete)
 }
 
 func (p *BatchProcessor) failCurrent(ctx context.Context, batchID, code string, cause error) error {
