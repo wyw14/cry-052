@@ -149,6 +149,22 @@ func (b *Batch) MarkCancelled(expected int64, now time.Time) error {
 	return nil
 }
 
+// CanRollback reports whether the batch is in a state from which a rollback
+// may be attempted. Callers must consult this before mutating the target
+// table so that an ineligible batch (for example, one still pending) is
+// rejected without ever touching target data.
+func (b *Batch) CanRollback() bool {
+	if b.RollbackCheckpoint == "" {
+		return false
+	}
+	switch b.Status {
+	case BatchCompleted, BatchFailed, BatchCancelled:
+		return true
+	default:
+		return false
+	}
+}
+
 func (b *Batch) MarkRolledBack(expected, finalTargetRows int64, now time.Time) error {
 	if b.Version != expected {
 		return ErrVersionConflict

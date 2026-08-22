@@ -13,7 +13,12 @@ type rollbackPlan struct {
 }
 
 func newRollbackPlan(batch domain.Batch) (rollbackPlan, error) {
-	if batch.RollbackCheckpoint == "" {
+	// Eligibility must be established before the target table is touched.
+	// A batch that is still pending (or otherwise not in a terminal,
+	// rollback-eligible state) must never reach the adapter rollback call,
+	// otherwise the target is truncated to the checkpoint while the caller
+	// is told the transition is not allowed.
+	if !batch.CanRollback() {
 		return rollbackPlan{}, domain.ErrInvalidTransition
 	}
 	return rollbackPlan{TargetTable: batch.TargetTable, Checkpoint: batch.RollbackCheckpoint, Expected: batch.InitialTargetRows}, nil

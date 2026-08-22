@@ -34,15 +34,7 @@ func maskedRowsWritten(batch Batch) int64 {
 }
 
 func batchCanRollback(batch Batch) bool {
-	if batch.RollbackCheckpoint == "" {
-		return false
-	}
-	switch batch.Status {
-	case BatchCompleted, BatchFailed, BatchCancelled:
-		return true
-	default:
-		return false
-	}
+	return batch.CanRollback()
 }
 
 func snapshotStrategyCounters(counters map[string]int) map[string]int {
